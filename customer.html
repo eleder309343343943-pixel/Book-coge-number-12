@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>کافه شماره ۱۲ | فروشگاه کتاب</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fffaf2;color:#493525;font-family:Tahoma,Arial,sans-serif}
+header{background:linear-gradient(120deg,#e88b43,#f3b36f);color:#fff;padding:24px 16px;text-align:center}
+header h1{margin:0;font-size:25px}header p{margin:8px 0 0;font-size:13px}
+main{max-width:850px;margin:24px auto;padding:0 14px}.card{background:#fff;border:1px solid #f0dfc8;border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 5px 18px #76502a0c}
+h2{font-size:18px;margin:0 0 14px}p{line-height:1.8}input,textarea,button{font:inherit}input,textarea{width:100%;padding:12px;border:1px solid #e8d6c0;border-radius:9px;margin:7px 0 13px;background:#fffdfa;color:#493525}button{border:0;border-radius:9px;padding:11px 16px;background:#e88b43;color:white;cursor:pointer}button.secondary{background:#76543b}button.danger{background:#bd5144}button:disabled{opacity:.55;cursor:not-allowed}
+.hidden{display:none!important}.muted{font-size:13px;color:#927d68}.book{display:grid;grid-template-columns:135px 1fr;gap:17px}.cover{width:100%;height:175px;object-fit:cover;border-radius:10px;background:#f5eadb}.price{font-size:21px;color:#d9782c;font-weight:bold}.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.status{display:inline-block;padding:6px 10px;border-radius:8px;background:#fff0d9;color:#a85c20;font-size:12px}.approved{background:#e3f5e7;color:#26763a}.rejected{background:#ffe8e5;color:#a33d32}.order{border:1px solid #f0e4d4;border-radius:12px;padding:14px;margin:12px 0}.order img{max-width:100%;max-height:260px;object-fit:contain;border-radius:8px;display:block;margin-top:10px}.total{font-size:18px;font-weight:bold;color:#bd6a2c}hr{border:0;border-top:1px solid #f0e4d4;margin:18px 0}
+@media(max-width:480px){.book{grid-template-columns:100px 1fr}.cover{height:140px}}
+</style></head>
+<body>
+<header><h1>کافه شماره ۱۲</h1><p>فروشگاه کتاب</p></header>
+<main>
+<section class="card" id="loginBox"><h2>ورود به فروشگاه</h2><p class="muted">نامی وارد کن تا سفارش‌ها به نام خودت ثبت شوند.</p><input id="customerName" maxlength="35" placeholder="نام شما"><button onclick="login()">ورود</button><p id="loginMsg" class="muted"></p></section>
+<div id="shop" class="hidden">
+<section class="card"><div class="row"><strong>سلام، <span id="helloName"></span></strong><button class="secondary" onclick="logout()">خروج</button></div></section>
+<section class="card"><h2>کتاب فروشگاه</h2><div class="book"><img id="bookImage" class="cover" alt="تصویر کتاب"><div><h2 id="bookTitle">در حال دریافت...</h2><p id="bookDescription" class="muted"></p><p class="price" id="bookPrice"></p><p>موجودی: <strong id="stock">—</strong></p></div></div></section>
+<section class="card"><h2>ثبت سفارش</h2><label>تعداد موردنظر</label><input id="quantity" type="number" min="1" step="1" value="1" oninput="updateTotal()"><p>مبلغ کل: <span id="total" class="total">—</span></p><hr><h2>اطلاعات پرداخت</h2><p>لطفاً مبلغ سفارش را به شماره کارت زیر واریز کن و تصویر رسید را ارسال کن.</p><p><strong>صاحب کارت:</strong> <span id="cardHolder">—</span></p><p><strong>بانک:</strong> <span id="bankName">—</span></p><div class="row"><strong id="cardNumber" dir="ltr">—</strong><button class="secondary" onclick="copyCard()">کپی شماره کارت</button></div><label>تصویر رسید پرداخت</label><input id="receipt" type="file" accept="image/*"><p class="muted">تصویر رسید فشرده می‌شود و جدا از اطلاعات سفارش نگهداری می‌شود.</p><button id="orderBtn" onclick="placeOrder()">ثبت سفارش</button><p id="receiptMessage" class="muted"></p></section>
+<section class="card"><h2>سفارش‌های من</h2><div id="myOrders"><p class="muted">هنوز سفارشی ثبت نکرده‌ای.</p></div></section>
+</div>
+</main>
+<script>
+const BIN_ID="6af4aeacffd5d16053ba0731";
+const INITIAL_RECEIPT_BIN_ID="6af4b972ffd5d16053ba1e54";
+const API="https://api.jsonbin.io/v3/b/";
+const MASTER_KEY="$2a$10$bUNx.9q6Qfk9niGPi2bK.ORdpDa9F3t9uEadILIV0JceNEhX3Kt1G";
+const masterKey=MASTER_KEY;
+let db=null, customer="";
+const $=id=>document.getElementById(id);
+const money=n=>Number(n||0).toLocaleString("fa-IR")+" تومان";
+function headers(){return {"Content-Type":"application/json","X-Master-Key":masterKey};}
+async function request(url,options={}){const r=await fetch(url,{...options,headers:{...headers(),...(options.headers||{})}});let j={};try{j=await r.json()}catch{}if(!r.ok)throw Error(j.message||("خطای سرور: "+r.status));return j;}
+function emptyDB(){return {store:{name:"کافه شماره ۱۲"},settings:{},admins:[],users:[],categories:[],books:[],carts:[],orders:[],payments:[],deliveryMethods:[],paymentMethods:[],orderStatuses:["در انتظار بررسی","تأیید شده","رد شده"],storePaymentInfo:{cardHolder:"",cardNumber:"",bank:""},statistics:{}}}
+async function loadDB(){const j=await request(API+BIN_ID+"/latest");return j.record;}
+async function saveDB(){await request(API+BIN_ID,{method:"PUT",body:JSON.stringify(db)});}
+async function readBin(id){const j=await request(API+id+"/latest");return j.record;}
+async function writeBin(id,record){await request(API+id,{method:"PUT",body:JSON.stringify(record)});}
+async function clearReceiptBin(id){if(!id)return;try{await writeBin(id,{receipt:""});}catch(e){console.warn("پاک‌سازی رسید ناموفق بود:",e.message);}}
+async function makeReceiptBin(data){let id=INITIAL_RECEIPT_BIN_ID;try{const first=await readBin(id);if(first.receipt||first.image||first.data||first.receipts?.length)id="";}catch{id="";}
+ if(!id){const j=await request(API,{method:"POST",headers:{"X-Bin-Name":"cafe12-receipt-"+Date.now()},body:JSON.stringify({receipt:data})});id=j.metadata?.id;if(!id)throw Error("شناسه فضای رسید دریافت نشد.");}
+ else await writeBin(id,{receipt:data});
+ return id;
+}
+function compressImage(file,maxBytes=85000){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error("خواندن تصویر ناموفق بود."));reader.onload=()=>{const img=new Image();img.onerror=()=>reject(Error("تصویر معتبر نیست."));img.onload=()=>{let w=img.width,h=img.height;const scale=Math.min(1,1100/Math.max(w,h));w=Math.round(w*scale);h=Math.round(h*scale);const c=document.createElement("canvas"),ctx=c.getContext("2d");c.width=w;c.height=h;ctx.drawImage(img,0,0,w,h);let q=.78;const run=()=>{const data=c.toDataURL("image/jpeg",q);const bytes=Math.ceil((data.length- Math.ceil(data.length/4)*4/3)*1);if(data.length*0.75<=maxBytes||q<=.25){if(data.length*0.75>95000)return reject(Error("حجم تصویر پس از فشرده‌سازی هنوز زیاد است. تصویر کوچک‌تری انتخاب کن."));resolve(data);}else{q-=.08;run();}};run();};img.src=reader.result;};reader.readAsDataURL(file);});}
+function login(){const n=$("customerName").value.trim();if(n.length<2){$("loginMsg").textContent="نام را درست وارد کن.";return;}customer=n;localStorage.setItem("cafe12_customer",customer);showShop();}
+function logout(){localStorage.removeItem("cafe12_customer");customer="";$("shop").classList.add("hidden");$("loginBox").classList.remove("hidden");}
+async function start(){try{if(!MASTER_KEY||MASTER_KEY==="کلید مستر JSONBin را اینجا قرار بده"){ $("loginMsg").textContent="ابتدا Master Key را داخل کد customer.html وارد کن.";return;}db=await loadDB();customer=localStorage.getItem("cafe12_customer")||"";if(customer)showShop();}catch(e){$("loginMsg").textContent="دریافت اطلاعات ناموفق بود: "+e.message;}}
+function showShop(){$("loginBox").classList.add("hidden");$("shop").classList.remove("hidden");$("helloName").textContent=customer;render();}
+function getBook(){return db.books?.find(b=>b.active!==false)||db.books?.[0]||null;}
+function render(){const b=getBook(),p=db.storePaymentInfo||{};if(b){$("bookTitle").textContent=b.title||"کتاب";$("bookDescription").textContent=b.description||"";$("bookPrice").textContent=money(b.price);$("stock").textContent=Number(b.stock||0).toLocaleString("fa-IR");$("bookImage").src=b.image||"";$("bookImage").style.visibility=b.image?"visible":"hidden";}else{$("bookTitle").textContent="فعلاً کتابی ثبت نشده";$("bookPrice").textContent="";$("stock").textContent="۰";$("bookImage").style.visibility="hidden";}
+$("cardHolder").textContent=p.cardHolder||"ثبت نشده";$("bankName").textContent=p.bank||"ثبت نشده";$("cardNumber").textContent=p.cardNumber||"ثبت نشده";updateTotal();renderOrders();}
+function updateTotal(){const b=getBook(),q=Math.max(1,Math.floor(Number($("quantity").value)||1));$("total").textContent=b?money(q*Number(b.price||0)):"—";}
+async function copyCard(){const s=$("cardNumber").textContent;if(!s||s==="ثبت نشده"){alert("شماره کارت ثبت نشده است.");return;}try{await navigator.clipboard.writeText(s);alert("شماره کارت کپی شد.");}catch{alert("کپی خودکار ممکن نیست؛ شماره کارت را دستی کپی کن.");}}
+async function placeOrder(){const b=getBook(),file=$("receipt").files[0],q=Math.floor(Number($("quantity").value));if(!b){alert("هنوز کتابی ثبت نشده.");return;}if(!Number.isInteger(q)||q<1){alert("تعداد معتبر نیست.");return;}if(q>Number(b.stock||0)){alert("موجودی کافی نیست.");return;}if(!file){alert("لطفاً تصویر رسید را انتخاب کن.");return;}if(!/^image\//.test(file.type)){alert("فقط فایل تصویری انتخاب کن.");return;}
+const btn=$("orderBtn");btn.disabled=true;$("receiptMessage").textContent="در حال آماده‌سازی و ثبت سفارش...";
+let receiptBinId="";try{const data=await compressImage(file);receiptBinId=await makeReceiptBin(data);db.orders=db.orders||[];db.orders.push({id:"ORD-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),customerName:customer,bookId:b.id||null,bookTitle:b.title||"کتاب",quantity:q,total:q*Number(b.price||0),status:"در انتظار بررسی",receiptBinId,createdAt:new Date().toISOString()});await saveDB();$("receipt").value="";$("quantity").value=1;$("receiptMessage").textContent="سفارش با موفقیت ثبت شد.";render();}catch(e){if(receiptBinId)await clearReceiptBin(receiptBinId);$("receiptMessage").textContent="خطا: "+e.message;}finally{btn.disabled=false;}}
+function statusClass(s){return s==="تأیید شده"?"approved":s==="رد شده"?"rejected":"";}
+async function renderOrders(){const root=$("myOrders"),orders=(db.orders||[]).filter(o=>o.customerName===customer).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));root.innerHTML="";if(!orders.length){root.innerHTML='<p class="muted">هنوز سفارشی ثبت نکرده‌ای.</p>';return;}
+for(const o of orders){const el=document.createElement("div");el.className="order";const top=document.createElement("div");top.className="row";const title=document.createElement("strong");title.textContent=o.bookTitle||"سفارش";const badge=document.createElement("span");badge.className="status "+statusClass(o.status);badge.textContent=o.status||"در انتظار بررسی";top.append(title,badge);const info=document.createElement("p");info.textContent="تعداد: "+o.quantity+" | مبلغ: "+money(o.total);const date=document.createElement("p");date.className="muted";date.textContent=o.createdAt?new Date(o.createdAt).toLocaleString("fa-IR"):"";el.append(top,info,date);
+if(o.receiptBinId){const show=document.createElement("button");show.className="secondary";show.textContent="نمایش رسید";show.onclick=async()=>{show.disabled=true;try{const rec=await readBin(o.receiptBinId);const src=rec.receipt||rec.image||rec.data;if(!src)throw Error("تصویر رسید در دسترس نیست.");let im=el.querySelector("img");if(!im){im=document.createElement("img");im.alt="رسید پرداخت";el.append(im);}im.src=src;}catch(e){alert(e.message);}finally{show.disabled=false;}};el.append(show);}
+if(o.status!=="تأیید شده"){const del=document.createElement("button");del.className="danger";del.style.marginRight="8px";del.textContent="حذف سفارش";del.onclick=()=>deleteMyOrder(o.id);el.append(del);}
+root.append(el);}}
+async function deleteMyOrder(id){const o=(db.orders||[]).find(x=>x.id===id);if(!o||o.customerName!==customer||o.status==="تأیید شده")return;if(!confirm("این سفارش حذف شود؟"))return;db.orders=db.orders.filter(x=>x.id!==id);try{await saveDB();await clearReceiptBin(o.receiptBinId);renderOrders();}catch(e){alert("حذف سفارش ناموفق بود: "+e.message);}}
+start();
+</script></body></html>
